@@ -43,11 +43,11 @@ for i = 2:T+1
     C(((i - 1) * size(A, 1) + 1):(i * size(A, 1)), 1) = current_c;
 end
 
-%% Solve QP
+%% Solve MPC Recommendation System
 x_t = x0;
 state_results = zeros(6,iters+1);
 state_results(:,1) = x_t;
-input_results = zeros(1,iters);
+input_results = zeros(1,iters+1);
 for i = 1:iters
     H = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_u - kron(eye(T+1),ones(6,1)));
     f = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_x*x_t + C);
@@ -61,9 +61,69 @@ for i = 1:iters
     state_results(:,i+1) = x_t;
     input_results(1,i) = u(1);
 end
+% get the last input
+H = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_u - kron(eye(T+1),ones(6,1)));
+f = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_x*x_t + C);
 
+lb = zeros(T+1,1);
+ub = ones(T+1,1);
+
+u = quadprog(H,f,[],[],[],[],lb,ub);
+input_results(1,end) = u(1);
+
+%% Solve Naive Recommendation System
+x_t = x0;
+naive_state_results = zeros(6,iters+1);
+naive_state_results(:,1) = x_t;
+naive_input_results = zeros(1,iters+1);
+
+for i = 1:iters
+    H = 2*ones(1,6)*ones(6,1);
+    f = -2*ones(1,6)*x_t;
+
+    lb = 0;
+    ub = 1;
+    u = quadprog(H,f,[],[],[],[],lb,ub);
+    x_t = A*x_t + B*u + Lambda*x0;
+
+    naive_state_results(:,i+1) = x_t;
+    naive_input_results(1,i) = u;
+end
+% get the last input
+H = 2*ones(1,6)*ones(6,1);
+f = -2*ones(1,6)*x_t;
+
+lb = 0;
+ub = 1;
+u = quadprog(H,f,[],[],[],[],lb,ub);
+naive_input_results(1,end) = u;
+
+%% Plots
 figure_configuration_IEEE_standard
-plot(0:iters,state_results')
 
-figure
-plot(input_results)
+figure;
+% For IEEE:
+set(gca, 'FontName', 'Times')
+set(groot,'defaultAxesFontName','Times New Roman')
+% For default Latex font:
+% set(groot,'defaultAxesTickLabelInterpreter','latex');
+% set(groot,'defaulttextinterpreter','latex');
+% set(groot,'defaultLegendInterpreter','latex');
+
+% plot the states
+plot(0:iters,state_results','Color',[1 0 0 0.3],'LineWidth',1.5);
+set(gca, 'FontName', 'Times New Roman')
+hold on;
+plot(0:iters,naive_state_results','Color', [0 0 1 0.3],'LineWidth',1.5);
+
+% plot recommendations
+plot(0:iters,input_results,'Color',[1 0 0 1],'LineStyle','-')
+plot(0:iters,naive_input_results,'Color',[0 0 1 1],'LineStyle','-');
+
+xlabel('Update Step (t)','FontName','Times New Roman')
+% ylim([-0.1 1])
+ylabel('Opinion')
+legend({'User Opinions (MPC)','','','','','','User Opinions (Naive)','','','','','','MPC Recommendations', 'Naive Recommendations'},'Location','northeast')
+
+% figure;
+% plot(input_results)
