@@ -2,19 +2,19 @@ clear
 clc
 close all
 
-W = [0, 0.041, 0, 0.397, 0, 0, 0.562;
-    0, 0.191, 0, 0, 0, 0.011, 0.798;
-    0, 0, 0, 0, 0, 0.224, 0.776;
-    1, 0, 0, 0, 0, 0, 0;
-    0, 0, 0, 0, 1, 0, 0;
-    0, 0, 0, 1, 0, 0, 0];
+W = [0, 0.354, 0, 0, 0.132, 0, 0.514;
+    0, 0, 0.395, 0.605, 0, 0, 0;
+    0.333, 0.282, 0.084, 0, 0.071, 0.23, 0;
+    0.3, 0, 0, 0.372, 0, 0.328, 0;
+    0, 0, 1, 0, 0, 0, 0;
+    0, 0, 0.102, 0, 0, 0.069, 0.829];
 
-Lambda = diag([0.011, 0.001, 0.092, 0.064, 1.000, 0.055]);
+Lambda = diag([0.333, 0.295, 0.152, 0.005, 0.319, 0.108]);
 
 A = (eye(6) - Lambda)*W(1:6,1:6); % check this
 B = (eye(6) - Lambda)*W(1:6,7);
 
-x0 = [0.67; 0.74; 0.83; 0.68; 0.; 0.59];
+x0 = [0.79; 0.68; 0.11; 0.1; 0.92; 0.02];
 
 T = 10;
 iters = 30;
@@ -106,6 +106,23 @@ u = quadprog(H,f,[],[],[],[],lb,ub);
 naive_input_results(1,end) = u;
 naive_cost_results(1,end) = (x_t - ones(6,1)*u)'*(x_t - ones(6,1)*u);
 
+%% Calculate uncontrolled state evolution
+W_new = W(:,1:6);
+W_new_sums = sum(W_new,2);
+for i=1:6
+W_new(i,:) = W_new(i,:)/W_new_sums(i);
+end
+
+uncontrolled_results = zeros(6,iters+1);
+
+x_t = x0;
+uncontrolled_results(:,1) = x_t;
+for i=1:iters
+    x_t = (eye(6)-Lambda)*W_new*x_t + Lambda*x0;
+    uncontrolled_results(:,i+1) = x_t;
+end
+
+
 %% Plots
 figure_configuration_IEEE_standard
 
@@ -120,25 +137,27 @@ set(groot,'defaultAxesFontName','Times New Roman')
 % set(groot,'defaultLegendInterpreter','latex');
 
 % plot the states
-plot(0:iters,state_results','Color',[1 0 0 0.3],'LineWidth',1.5);
+plot(0:iters,state_results','Color',[1 0 0 1],'LineWidth',1.5);
 set(gca, 'FontName', 'Times New Roman')
 hold on;
-plot(0:iters,naive_state_results','Color', [0 0 1 0.3],'LineWidth',1.5);
+% plot(0:iters,naive_state_results','Color', [0 0 1 1],'LineWidth',1.5);
+plot(0:iters,uncontrolled_results','Color', [0.6 0.6 0.6 1],'LineStyle','--','LineWidth',1.5)
 
-% plot recommendations
-plot(0:iters,input_results,'Color',[1 0 0 1],'LineStyle','-')
-plot(0:iters,naive_input_results,'Color',[0 0 1 1],'LineStyle','-');
-
+% % plot recommendations
+% plot(0:iters,input_results,'Color',[1 0 0 1],'LineStyle','-')
+% plot(0:iters,naive_input_results,'Color',[0 0 1 1],'LineStyle','-');
+% 
 xlabel('Update Step (t)','FontName','Times New Roman')
 % ylim([-0.1 1])
 ylabel('Opinion')
-legend({'User Opinions (MPC)','','','','','','User Opinions (Naive)','','','','','','MPC Recommendations', 'Naive Recommendations'},'Location','northeast')
-
-% plot the cost at each step
-figure;
-plot(0:iters,cost_results,'Color',[1 0 0 1])
-hold on
-plot(0:iters,naive_cost_results,'Color',[0 0 1 1]);
-legend({'MPC','Naive'},'Location','northeast')
-xlabel("Update Step (t)")
-ylabel("Step Cost")
+% legend({'User Opinions (MPC)','','','','','','User Opinions (Naive)','','','','','','User Opinions (Uncontrolled)'},'Location','northeast')
+legend({'User Opinions (MPC)','','','','','','User Opinions (Uncontrolled)'},'Location','northeast')
+% 
+% % plot the cost at each step
+% figure;
+% plot(0:iters,cost_results,'Color',[1 0 0 1])
+% hold on
+% plot(0:iters,naive_cost_results,'Color',[0 0 1 1]);
+% legend({'MPC','Naive'},'Location','northeast')
+% xlabel("Update Step (t)")
+% ylabel("Step Cost")
