@@ -2,6 +2,8 @@ clear
 clc
 close all
 
+%% Initialize the problem
+% create the adjacency matrix - column 7 corresponds to users' trust in rec. sys.
 W = [0, 0.354, 0, 0, 0.132, 0, 0.514;
     0, 0, 0.395, 0.605, 0, 0, 0;
     0.333, 0.282, 0.084, 0, 0.071, 0.23, 0;
@@ -9,20 +11,25 @@ W = [0, 0.354, 0, 0, 0.132, 0, 0.514;
     0, 0, 1, 0, 0, 0, 0;
     0, 0, 0.102, 0, 0, 0.069, 0.829];
 
+% biases
 Lambda = diag([0.333, 0.295, 0.152, 0.005, 0.319, 0.108]);
 
-A = (eye(6) - Lambda)*W(1:6,1:6); % check this
+% construct A and B (see the paper for derivation)
+A = (eye(6) - Lambda)*W(1:6,1:6);
 B = (eye(6) - Lambda)*W(1:6,7);
 
+% initial opinions
 x0 = [0.79; 0.68; 0.11; 0.1; 0.92; 0.02];
 
-T = 10;
-iters = 30;
+T = 10; % horizon
+iters = 30; % number of simulation steps
 
-% Initialize the matrices
+%% Construct QP
+% Unroll the dynamics to create a big QP
+% for more information, see "Batch Approach" in attached PDF
 S_x = zeros(size(A, 1) * (T + 1), size(A, 1));
 S_u = zeros(size(A, 1) * (T + 1), size(B, 2) * (T+1));
-C = zeros(size(A, 1) * (T+1), 1);
+C = zeros(size(A, 1) * (T+1), 1); % addition of constant vector is necessary to capture effect of Lambda * x0
 
 % Construct S_x matrix
 for i = 1:T+1
@@ -44,26 +51,39 @@ for i = 2:T+1
 end
 
 %% Solve MPC Recommendation System
+% initial condition
 x_t = x0;
+
+% create variables to store results
 state_results = zeros(6,iters+1);
 state_results(:,1) = x_t;
 input_results = zeros(1,iters+1);
 cost_results = zeros(1,iters+1);
 
 for i = 1:iters
+    % Construct QP: again, see "Batch Approach" and Matlab's quadprog
+    % for notation
     H = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_u - kron(eye(T+1),ones(6,1)));
     f = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_x*x_t + C);
     
+    % constraints
     lb = zeros(T+1,1);
     ub = ones(T+1,1);
     
+    % solve for optimal inputs over horizon
     u = quadprog(H,f,[],[],[],[],lb,ub);
+
+    % calculate the cost for the FIRST optimal input
     cost_results(1,i) = (x_t - ones(6,1)*u(1))'*(x_t - ones(6,1)*u(1));
+
+    % move system forward one step
     x_t = A*x_t + B*u(1) + Lambda*x0;
 
+    % record results
     state_results(:,i+1) = x_t;
     input_results(1,i) = u(1);
 end
+
 % get the last input
 H = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_u - kron(eye(T+1),ones(6,1)));
 f = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_x*x_t + C);
@@ -77,6 +97,7 @@ input_results(1,end) = u(1);
 
 
 %% Solve Naive Recommendation System
+% same as above, except the cost function changes so H and f are different
 x_t = x0;
 naive_state_results = zeros(6,iters+1);
 naive_state_results(:,1) = x_t;
@@ -106,16 +127,28 @@ u = quadprog(H,f,[],[],[],[],lb,ub);
 naive_input_results(1,end) = u;
 naive_cost_results(1,end) = (x_t - ones(6,1)*u)'*(x_t - ones(6,1)*u);
 
-%% Calculate uncontrolled state evolution
+%% Calculate uncontrolled (open-loop) state evolution
+% First, we remove the recommendation system from the graph and re-scale so
+% that matrix is row-stochastic
+
+% remove rec sys column
 W_new = W(:,1:6);
+
+% calculate the sum of each row without the rec sys
 W_new_sums = sum(W_new,2);
+
+% re-scale each row so that it is row-stochastic
 for i=1:6
-W_new(i,:) = W_new(i,:)/W_new_sums(i);
+    W_new(i,:) = W_new(i,:)/W_new_sums(i);
 end
 
+% initialize results variable
 uncontrolled_results = zeros(6,iters+1);
 
+% initial condition
 x_t = x0;
+
+% calculate the state evolution
 uncontrolled_results(:,1) = x_t;
 for i=1:iters
     x_t = (eye(6)-Lambda)*W_new*x_t + Lambda*x0;
