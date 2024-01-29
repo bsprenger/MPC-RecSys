@@ -30,7 +30,7 @@ B_tilde = [B;zeros(6,1)];
 x0_tilde = [x0;Lambda*x0];
 
 
-%% LQR
+%% Setup LQR
 M = eye(12);
 N = 6;
 S = -[ones(6,1);zeros(6,1)];
