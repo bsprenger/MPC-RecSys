@@ -35,7 +35,7 @@ M = eye(12);
 N = 6;
 S = -[ones(6,1);zeros(6,1)];
 
-T = 100;
+T = 30;
 
 % Calculate Riccati recursion
 P_matrices = zeros(12,12,T+1);
@@ -74,8 +74,8 @@ for k = 1:T
     x_history(:,k+1) = x;
 end
 
-plot(0:T, x_history(1:6,:));
+plot(0:T, x_history(1:6,:),'b');
 xlabel('Time Step');
 ylabel('Opinions');
-% title('State Variable 1 over Time');
+title("Control of Opinion Dynamics with LQR")
 
