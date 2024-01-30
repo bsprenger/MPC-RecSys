@@ -22,7 +22,7 @@ B = (eye(6) - Lambda)*W(1:6,7);
 
 % initial opinions
 mu0 = [0.79; 0.68; 0.11; 0.1; 0.92; 0.02]; % mean
-R0 = 0.01*eye(6); % variance matrix
+R0 = 0.0001*eye(6); % variance matrix
 
 %% Reformulate dynamics
 A_tilde = [A, eye(6);
@@ -37,8 +37,8 @@ R0_tilde = [eye(6);Lambda]*R0*[eye(6),Lambda];
 
 %% Setup noise variables
 % noise is zero-mean by assumption
-Sigma = 0.00005*eye(12); % dynamics noise covariance
-Gamma = 0.01*eye(6); % measurement noise covariance, must be > 0
+Sigma = 0.0001*eye(12); % dynamics noise covariance
+Gamma = 0.001*eye(6); % measurement noise covariance, must be > 0
 Upsilon = zeros(12,6); % covariance between dynamics and measurement
 
 %% Setup LQG
@@ -83,7 +83,6 @@ end
 %% Simulate system
 % Initialize state and estimation vectors
 x = zeros(12,T+1); % States from 0 to T i.e. of length T+1
-rng(3);
 x(:,1) = mvnrnd(mu0_tilde,R_matrices(:,:,1),1); % Initial state 
 y = zeros(6,T); % measurements from 1 to T i.e. length T
 u = zeros(1,T); % Control input from 0 to T-1 i.e. length T
@@ -120,4 +119,4 @@ plot(time, actual_states(1:6,:),'b',time, estimated_states(1:6,:), 'r--');
 xlabel('Time');
 ylabel('Opinion');
 title("Control of Opinion Dynamics with LQG")
-legend('Actual Opinions','','','','','','Estimated Opinions')
+legend('Actual','','''Estimated')
