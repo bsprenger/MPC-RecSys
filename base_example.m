@@ -1,3 +1,8 @@
+%% base_example.m
+% This script is a simple example of how the recommendation systems work
+% for a given network. The MPC, Model-Free, and uncontrolled systems are
+% simulated and plotted.
+
 clear
 clc
 close all
@@ -24,108 +29,9 @@ x0 = [0.79; 0.68; 0.11; 0.1; 0.92; 0.02];
 T = 10; % horizon
 iters = 30; % number of simulation steps
 
-%% Construct QP
-% Unroll the dynamics to create a big QP
-% for more information, see "Batch Approach" in attached PDF
-S_x = zeros(size(A, 1) * (T + 1), size(A, 1));
-S_u = zeros(size(A, 1) * (T + 1), size(B, 2) * (T+1));
-C = zeros(size(A, 1) * (T+1), 1); % addition of constant vector is necessary to capture effect of Lambda * x0
-
-% Construct S_x matrix
-for i = 1:T+1
-    S_x(((i - 1) * size(A, 1) + 1):(i * size(A, 1)), :) = A^(i-1);
-end
-
-% Construct S_u matrix
-for i = 1:T
-    for j = 1:i
-        S_u(((i - 1) * size(A, 1) + 1 + 6):(i * size(A, 1) + 6), ((j - 1) * size(B, 2) + 1):(j * size(B, 2))) = A^(i-j)*B;
-    end
-end
-
-% Construct C matrix
-current_c = zeros(size(A, 1), 1);
-for i = 2:T+1
-    current_c = A*current_c + Lambda*x0;
-    C(((i - 1) * size(A, 1) + 1):(i * size(A, 1)), 1) = current_c;
-end
-
-%% Solve MPC Recommendation System
-% initial condition
-x_t = x0;
-
-% create variables to store results
-state_results = zeros(6,iters+1);
-state_results(:,1) = x_t;
-input_results = zeros(1,iters+1);
-cost_results = zeros(1,iters+1);
-
-for i = 1:iters
-    % Construct QP: again, see "Batch Approach" and Matlab's quadprog
-    % for notation
-    H = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_u - kron(eye(T+1),ones(6,1)));
-    f = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_x*x_t + C);
-    
-    % constraints
-    lb = zeros(T+1,1);
-    ub = ones(T+1,1);
-    
-    % solve for optimal inputs over horizon
-    u = quadprog(H,f,[],[],[],[],lb,ub);
-
-    % calculate the cost for the FIRST optimal input
-    cost_results(1,i) = (x_t - ones(6,1)*u(1))'*(x_t - ones(6,1)*u(1));
-
-    % move system forward one step
-    x_t = A*x_t + B*u(1) + Lambda*x0;
-
-    % record results
-    state_results(:,i+1) = x_t;
-    input_results(1,i) = u(1);
-end
-
-% get the last input
-H = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_u - kron(eye(T+1),ones(6,1)));
-f = 2*(S_u - kron(eye(T+1),ones(6,1)))'*(S_x*x_t + C);
-
-lb = zeros(T+1,1);
-ub = ones(T+1,1);
-
-u = quadprog(H,f,[],[],[],[],lb,ub);
-cost_results(1,end) = (x_t - ones(6,1)*u(1))'*(x_t - ones(6,1)*u(1));
-input_results(1,end) = u(1);
-
-
-%% Solve Naive Recommendation System
-% same as above, except the cost function changes so H and f are different
-x_t = x0;
-naive_state_results = zeros(6,iters+1);
-naive_state_results(:,1) = x_t;
-naive_input_results = zeros(1,iters+1);
-naive_cost_results = zeros(1,iters+1);
-
-for i = 1:iters
-    H = 2*ones(1,6)*ones(6,1);
-    f = -2*ones(1,6)*x_t;
-
-    lb = 0;
-    ub = 1;
-    u = quadprog(H,f,[],[],[],[],lb,ub);
-    naive_cost_results(1,i) = (x_t - ones(6,1)*u)'*(x_t - ones(6,1)*u);
-    x_t = A*x_t + B*u + Lambda*x0;
-
-    naive_state_results(:,i+1) = x_t;
-    naive_input_results(1,i) = u;
-end
-% get the last input
-H = 2*ones(1,6)*ones(6,1);
-f = -2*ones(1,6)*x_t;
-
-lb = 0;
-ub = 1;
-u = quadprog(H,f,[],[],[],[],lb,ub);
-naive_input_results(1,end) = u;
-naive_cost_results(1,end) = (x_t - ones(6,1)*u)'*(x_t - ones(6,1)*u);
+%% Solve Recommendation Systems
+[mpc_state,mpc_input,mpc_cost] = solveMPC(A,B,Lambda,x0,T,iters);
+[mf_state,mf_input,mf_cost] = solveModelFree(A,B,Lambda,x0,iters);
 
 %% Calculate uncontrolled (open-loop) state evolution
 % First, we remove the recommendation system from the graph and re-scale so
@@ -164,33 +70,29 @@ figure;
 set(gca, 'FontName', 'Times')
 set(groot,'defaultAxesFontName','Times New Roman')
 
-% For default Latex font:
-% set(groot,'defaultAxesTickLabelInterpreter','latex');
-% set(groot,'defaulttextinterpreter','latex');
-% set(groot,'defaultLegendInterpreter','latex');
-
 % plot the states
-plot(0:iters,state_results','Color',[1 0 0 1],'LineWidth',1.5);
+plot(0:iters,mpc_state','Color',[1 0 0 1],'LineWidth',1.5);
 set(gca, 'FontName', 'Times New Roman')
 hold on;
-% plot(0:iters,naive_state_results','Color', [0 0 1 1],'LineWidth',1.5);
+plot(0:iters,mf_state','Color', [0 0 1 1],'LineWidth',1.5);
 plot(0:iters,uncontrolled_results','Color', [0.6 0.6 0.6 1],'LineStyle','--','LineWidth',1.5)
 
-% % plot recommendations
-% plot(0:iters,input_results,'Color',[1 0 0 1],'LineStyle','-')
-% plot(0:iters,naive_input_results,'Color',[0 0 1 1],'LineStyle','-');
-% 
+% plot recommendations
+plot(0:iters,mpc_input,'Color',[1 0 0 1],'LineStyle','-')
+plot(0:iters,mf_input,'Color',[0 0 1 1],'LineStyle','-');
+
 xlabel('Update Step (t)','FontName','Times New Roman')
-% ylim([-0.1 1])
 ylabel('Opinion')
-% legend({'User Opinions (MPC)','','','','','','User Opinions (Naive)','','','','','','User Opinions (Uncontrolled)'},'Location','northeast')
-legend({'User Opinions (MPC)','','','','','','User Opinions (Uncontrolled)'},'Location','northeast')
-% 
-% % plot the cost at each step
-% figure;
-% plot(0:iters,cost_results,'Color',[1 0 0 1])
-% hold on
-% plot(0:iters,naive_cost_results,'Color',[0 0 1 1]);
-% legend({'MPC','Naive'},'Location','northeast')
-% xlabel("Update Step (t)")
-% ylabel("Step Cost")
+legend({'User Opinions (MPC)','','','','','','User Opinions (Model-Free)',...
+    '','','','','','User Opinions (Uncontrolled)','','','','','',...
+    'Recommendation (MPC)','Recommendation (Model-Free)'},...
+    'Location','northeast')
+
+% plot the cost at each step
+figure;
+plot(0:iters,mpc_cost,'Color',[1 0 0 1])
+hold on
+plot(0:iters,mf_cost,'Color',[0 0 1 1]);
+legend({'MPC','Model-Free'},'Location','northeast')
+xlabel("Update Step (t)")
+ylabel("Step Cost")
