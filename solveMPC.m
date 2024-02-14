@@ -1,28 +1,27 @@
 function [state_results,input_results,cost_results] = solveMPC(A,B,Lambda,x0,T,iters)
-% SOLVEMPC Solves Recommendation Sys. MPC problem for a given user network.
-%
-% This function solves an MPC optimization problem for the opinion dynamics
-% network described by matrices A, B, and Lambda, starting from initial
-% state x0, over a prediction horizon T, for a given number of iterations.
+% solveModelFree Simulates the evolution of a system under a MPC-based recommendation system.
 %
 % Inputs:
-%   A - System dynamics matrix
-%   B - Input matrix
-%   Lambda - Bias matrix
-%   x0 - Initial state vector
-%   T - Prediction horizon
-%   iters - Number of iterations to simulate
+%   A : System dynamics matrix
+%   B : Input matrix
+%   Lambda : Bias matrix
+%   x0 : Initial state vector
+%   T : Prediction horizon for MPC
+%   iters : Number of iterations to simulate
 %
 % Outputs:
-%   state_results - Matrix of state vectors at each iteration
-%   input_results - Vector of input values at each iteration
-%   cost_results - Cost associated with the input at each iteration
+%   state_results : A matrix where each column represents the state vector of the system at each iteration.
+%   input_results : A row vector where each element represents the computed control input at each iteration.
+%   cost_results : A row vector where each element represents the cost associated with the state and control input at each iteration.
 
     %% Construct QP
     num_users = size(A,1);
 
-    % Unroll the dynamics to create a big QP
-    % for more information, see "Batch Approach" in attached PDF
+    % Unroll the Friedkin-Johnsen dynamics over the horizon to create a big QP.
+    % X = S_x*x0 + S_u*U + C, where X is the vector of the entire
+    % state evolution, and U is the vector of all control inputs,
+    % and C is a constant vector.
+    % In this way, we remove X from our optimization and optimize only over U.
     S_x = zeros(size(A, 1) * (T + 1), size(A, 1));
     S_u = zeros(size(A, 1) * (T + 1), size(B, 2) * (T+1));
     C = zeros(size(A, 1) * (T+1), 1); % addition of constant vector is necessary to capture effect of Lambda * x0
@@ -57,10 +56,10 @@ function [state_results,input_results,cost_results] = solveMPC(A,B,Lambda,x0,T,i
     cost_results = zeros(1,iters+1);
     
     for i = 1:iters
-        % Construct QP: again, see "Batch Approach" and Matlab's quadprog
+        % Construct QP: see Matlab's quadprog
         % for notation
         H = 2*(S_u - kron(eye(T+1),ones(num_users,1)))'*(S_u - kron(eye(T+1),ones(num_users,1)));
-        H = (H + H') / 2; % correct for minor numerical errors from floating point
+        H = (H + H') / 2; % correct minor numerical asymmetry errors
         f = 2*(S_u - kron(eye(T+1),ones(num_users,1)))'*(S_x*x_t + C);
 
         % constraints
@@ -82,9 +81,9 @@ function [state_results,input_results,cost_results] = solveMPC(A,B,Lambda,x0,T,i
         input_results(1,i) = u(1);
     end
     
-    % get the last input
+    % get the last input and store
     H = 2*(S_u - kron(eye(T+1),ones(num_users,1)))'*(S_u - kron(eye(T+1),ones(num_users,1)));
-    H = (H + H') / 2; % correct for minor numerical errors from floating point
+    H = (H + H') / 2; % correct minor numerical asymmetry errors
     f = 2*(S_u - kron(eye(T+1),ones(num_users,1)))'*(S_x*x_t + C);
     
     lb = zeros(T+1,1);
