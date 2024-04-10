@@ -17,15 +17,15 @@ k_scaling = 4;          % scaling factor of the figure
 % (You need to plot a figure which has a width of (8.8 * k_scaling)
 % in MATLAB, so that when you paste it into your paper, the width will be
 % scalled down to 8.8 cm  which can guarantee a preferred clearness.
-k_width_hight = 2;      % width:hight ratio of the figure
+k_width_hight = 2.1;      % width:hight ratio of the figure
 
 width = 8.8 * k_scaling;
 hight = width / k_width_hight;
 
 %% figure margins
-top = 0.5;  % normalized top margin
-bottom = 3;	% normalized bottom margin
-left = 3.5;	% normalized left margin
+top = 0.2;  % normalized top margin
+bottom = 2;	% normalized bottom margin
+left = 4.0;	% normalized left margin --> change back to 3.5 default
 right = 1;  % normalized right margin
 
 %% set default figure configurations

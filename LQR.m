@@ -4,22 +4,22 @@ clc
 
 %% Initialize the problem
 % create the adjacency matrix - column 7 corresponds to users' trust in rec. sys.
-W = [0, 0.354, 0, 0, 0.132, 0, 0.514;
-    0, 0, 0.395, 0.605, 0, 0, 0;
-    0.333, 0.282, 0.084, 0, 0.071, 0.23, 0;
-    0.3, 0, 0, 0.372, 0, 0.328, 0;
-    0, 0, 1, 0, 0, 0, 0;
-    0, 0, 0.102, 0, 0, 0.069, 0.829];
+W = [0, 0.041, 0, 0.397, 0, 0, 0.562;
+    0, 0.191, 0, 0, 0, 0.011, 0.798;
+    0, 0, 0, 0, 0, 0.224, 0.776;
+    1, 0, 0, 0, 0, 0, 0;
+    0, 0, 0, 0, 1, 0, 0;
+    0, 0, 0, 1, 0, 0, 0];
 
 % biases
-Lambda = diag([0.333, 0.295, 0.152, 0.005, 0.319, 0.108]);
+Lambda = diag([0.011, 0.001, 0.092, 0.064, 1.000, 0.055]);
 
 % construct A and B (see the paper for derivation)
 A = (eye(6) - Lambda)*W(1:6,1:6);
 B = (eye(6) - Lambda)*W(1:6,7);
 
 % initial opinions
-x0 = [0.79; 0.68; 0.11; 0.1; 0.92; 0.02];
+x0 = [0.67; 0.74; 0.83; 0.68; 0.; 0.59];
 
 %% Reformulate dynamics
 A_tilde = [A, eye(6);

@@ -3,29 +3,27 @@ clear
 close all
 clc
 
-
 %% Parameters
 num_trials = 1000; % Number of Monte Carlo trials
-T = 20; % Time horizon
+T = 50; % Time horizon
 iters = 50; % Number of iterations
 num_users = 20;
-
+convergence_threshold = 1e-3;
 
 %% Initialize storage structures
 results = struct();
 
-
 %% Run trials
 for trial=1:num_trials
-    disp(trial)
+    fprintf("Trial %i\n",trial);
 
     % Determine sparsity level based on the current trial number
     if trial <= 250
-        sparsity_factor = 1.0; % 100% connections
+        sparsity_factor = 1.00; % 100% connections
     elseif trial <= 500
         sparsity_factor = 0.75; % 75% connections
     elseif trial <= 750
-        sparsity_factor = 0.5; % 50% connections
+        sparsity_factor = 0.50; % 50% connections
     else
         sparsity_factor = 0.25; % 25% connections
     end
@@ -34,14 +32,27 @@ for trial=1:num_trials
     max_connections = num_users * (num_users + 1);
     num_connections = round(max_connections * sparsity_factor);
 
-    W = generateSparseRowStochasticMatrix(num_users, num_users+1, num_connections);
+    % Initialize W
+    W = [];
+    
+    % Check for at least one non-zero entry in the last column
+    hasNonZeroInLastColumn = false; % Initial condition
+    
+    while ~hasNonZeroInLastColumn
+        W = generateSparseRowStochasticMatrix(num_users, num_users + 1, num_connections);
+        
+        % Check if the last column has at least one non-zero entry
+        if any(W(:, end) ~= 0)
+            hasNonZeroInLastColumn = true;
+        end
+    end
+
     Lambda = diag(rand([num_users 1]));
     
     A = (eye(num_users) - Lambda)*W(:,1:end-1);
     B = (eye(num_users) - Lambda)*W(:,end);
     
     x0 = rand([num_users 1]);
-    
 
     %% Solve Recommendation Systems
     [mpc_state,mpc_input,mpc_cost] = solveMPC(A,B,Lambda,x0,T,iters);
@@ -49,7 +60,9 @@ for trial=1:num_trials
 
     ss_mpc = mpc_state(:, end);
     ss_mf = mf_state(:, end);
-    
+
+    mpc_converge_step = find_convergence(mpc_state,convergence_threshold);
+    mf_converge_step = find_convergence(mf_state,convergence_threshold);
 
     %% Calculate uncontrolled steady-state
     % remove rec sys column
@@ -64,6 +77,8 @@ for trial=1:num_trials
     end
     ss_uncontrolled = (eye(num_users) - (eye(num_users) - Lambda)*W_new)\Lambda*x0;
     
+    uncontrolled_state = solveUncontrolled(W_new,Lambda,x0,iters);
+    uncontrolled_converge_step = find_convergence(uncontrolled_state,convergence_threshold);
 
     %% Calculate statistics
     % Transient cost performance comparison
@@ -87,6 +102,28 @@ for trial=1:num_trials
     results(trial).ss_pct_mpc_improvement = ss_pct_mpc_improvement;
     results(trial).pct_shift_mpc = pct_shift_mpc;
     results(trial).pct_shift_mf = pct_shift_mf;
+
+    results(trial).mpc_converge_step = mpc_converge_step;
+    results(trial).mf_converge_step = mf_converge_step;
+    results(trial).uncontrolled_converge_step = uncontrolled_converge_step;
 end
 
 save('monte_carlo_data.mat','results');
+
+%% Functions
+
+function convergence_index = find_convergence(matrix, epsilon)
+    % Compute the differences between consecutive columns
+    column_diffs = diff(matrix, 1, 2);
+    
+    % Compute the norms of these differences
+    norms = sqrt(sum(column_diffs.^2, 1));
+    
+    % Find the index where the norm is less than epsilon
+    convergence_index = find(norms < epsilon, 1) + 1; % +1 to correspond to column of matrix, not column of norms
+    
+    % If convergence is not found, set the index to NaN
+    if isempty(convergence_index)
+        convergence_index = NaN;
+    end
+end

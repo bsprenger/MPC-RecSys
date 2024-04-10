@@ -27,7 +27,7 @@ W = [0, 0.041, 0, 0.397, 0, 0, 0.562;
     0, 0.191, 0, 0, 0, 0.011, 0.798;
     0, 0, 0, 0, 0, 0.224, 0.776;
     1, 0, 0, 0, 0, 0, 0;
-    0, 0, 0, 0, 1, 0, 0;
+    0, 0, 0.472, 0.171, 0, 0, 0.357;
     0, 0, 0, 1, 0, 0, 0];
 
 % Biases
@@ -42,7 +42,7 @@ x0 = [0.67; 0.74; 0.83; 0.68; 0.; 0.59];
 
 
 %% Simulate the system with MPC and Model-Free Rec. Systems
-T = 20; % horizon for MPC
+T = 50; % horizon for MPC
 iters = 50; % number of simulation steps
 
 [mpc_state,mpc_input,mpc_cost] = solveMPC(A,B,Lambda,x0,T,iters);
@@ -108,8 +108,8 @@ h_mpc_state = plot(0:iters,mpc_state(1,:),'Color',[1 0 0 0.7],'LineWidth',1.2);
 h_mf_state = plot(0:iters,mf_state(1,:),'Color', [0 0 1 0.7],'LineWidth',1.2);
 
 % plot remaining
-plot(0:iters,mpc_state(2:,:)','Color',[1 0 0 0.7],'LineWidth',1.2);
-plot(0:iters,mf_state(2:,:)','Color', [0 0 1 0.7],'LineWidth',1.2);
+plot(0:iters,mpc_state(2:end,:)','Color',[1 0 0 0.7],'LineWidth',1.2);
+plot(0:iters,mf_state(2:end,:)','Color', [0 0 1 0.7],'LineWidth',1.2);
 
 % highlight radical user opinion
 h_radical = yline(0,'Color',[0 0.7 0],'LineWidth',4);
